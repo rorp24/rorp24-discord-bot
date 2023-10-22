@@ -1,162 +1,88 @@
 <?php
 // tout les endpoints
-//TODO: changer les endpoint pour des endpoint qui interagissent avec le bot
+include __DIR__ .'/../discord-handling/interaction.php';
 
-//Toutes les fonctions de sécurité
-//demande l'utilisation du plugin de JWT pour fonctionner
-function security_callback( \WP_REST_Request $request) {
-  if( is_user_logged_in() ){
-    $user = wp_get_current_user();
-    $allowed_roles = array( 'editor', 'administrator');
-    if ( array_intersect( $allowed_roles, $user->roles ) ) {
-      return true;
+use Discord\InteractionType;
+use Discord\InteractionResponseType;
+use Discord\BotPrivateData;
+
+//Interactions
+//PS: OUBLIE PAS QUE C'EST DU POST ET DONC QUE TU DOIT UTILISER POSTMAN, ABRUTI
+add_action( 'rest_api_init', function () {
+  register_rest_route( 'rorp24-discord-bot/v1', '/interactions', array(
+    'methods' => 'POST',
+    'callback' => 'rorp_discord_bot_interaction_endpoint',
+    'permission_callback' => '__return_true',
+  ) );
+} );
+
+function rorp_discord_bot_interaction_endpoint(\WP_REST_Request $request){
+  // global $wpdb;
+  //gestion des paramètres
+  $params = $request->get_params();
+  $headers = $request->get_headers();
+  error_log('params:'.json_encode($params));
+  
+  //gestion du cas où discord veux faire une vérification
+  $response = new WP_REST_Response();
+  $verificationResult = discord_endpoint_verify($headers,file_get_contents('php://input'),BotPrivateData::BOT_PUBLIC_KEY);
+  $response->set_data($verificationResult['payload']);
+  $response->set_status($verificationResult['status']);
+
+  //handle slash command sent
+  if($params['type'] == InteractionType::APPLICATION_COMMAND){
+    if(isset($params['data'])){
+      $data = $params['data'];
+      error_log("data:".json_encode($params['data']));
+
+      if($data['name']=='test'){
+        $response->set_data(array(
+          'type'=>InteractionResponseType::CHANNEL_MESSAGE_WITH_SOURCE,
+          'data'=>array(
+            'content'=>"le bot du rôliste flemmard fonctionne!"
+          ),
+        ));
+      }
     }
     else {
-      return new \WP_Error( 'access_denied', 'cet utilisateur n\'a pas le droit de faire ça' );
+      error_log("qu'est ce qui se passe ici?");
     }
   }
-  else{
-    return new \WP_Error( 'access_denied', 'utilisateur non connecté' );
-  }
+
+  return $response;
 }
 
-function string_sanatizer($value){
-	$clean = htmlspecialchars( $value );
-  foreach (array("select", "where", "insert", "update", "delete", "alter", "drop") as $val){
-    $clean = str_ireplace($val,"",$clean);
-  }
-  return $clean;
-}
-
-//Names
-add_action( 'rest_api_init', function () {
-  register_rest_route( 'rorp24-blocks/v1', '/name_generator/get_names', array(
-    'methods' => 'GET',
-    'callback' => 'rorp_api_name_generator_get_name',
-    'permission_callback' => '__return_true',
-    'args' => [
-  		'race' => [
-        'default'=>'all',
-        'sanitize_callback' => 'string_sanatizer',
-      ],
-    	'gender' => [
-        'default'=>3,
-        'sanitize_callback' => 'string_sanatizer',
-      ],
-    	'offset' => [
-        'default'=>0,
-        'sanitize_callback' => 'string_sanatizer',
-      ],
-    	'limit' => [
-        'default'=>10,
-        'sanitize_callback' => 'string_sanatizer',
-      ],
-    	'random' => [
-        'default'=>false,
-        'sanitize_callback' => 'string_sanatizer',
-      ],
-      'tag'=> [
-        'default'=>false,
-        'sanitize_callback' => 'string_sanatizer',
-      ],
-  	]
-  ) );
-} );
-
-function rorp_api_name_generator_get_name(\WP_REST_Request $request){
-  global $wpdb;
-  //gestion des paramètres
-  $race = $request->get_param( 'race' );
-  $gender = $request->get_param( 'gender' );
-	$offset = $request->get_param( 'offset' );
-  $limit = $request->get_param( 'limit' );
-  $random = $request->get_param( 'random' );
-  $tag = $request->get_param( 'tag' );
-  
-  $query = "SELECT * FROM rorp_API_generator_name ";
-  //9 == angel
-  if($race == 9 && $tag == 'generated'){
-    return generate_angel_name($gender,$limit) ;
-  }
-  if($race != 'all' || $gender < 3){
-    $query =  $query . "WHERE ";
-    if($race != 'all'){
-      $query =  $query . " race_id = " . $race . " ";
+function discord_endpoint_verify(array $headers, string $payload, string $publicKey): array
+{
+    if (
+        !isset($headers['x_signature_ed25519'])
+        || !isset($headers['x_signature_timestamp'])
+    ){
+      return ['status' => 401, 'payload' => null];
     }
-    if($race != 'all' && $gender < 3){
-      $query =  $query . " AND ";
+
+    $signature = $headers['x_signature_ed25519'][0];
+    $timestamp = $headers['x_signature_timestamp'][0];
+
+    if (!trim($signature, '0..9A..Fa..f') == '')
+        return ['status' => 401, 'payload' => null];
+
+    $message = $timestamp . $payload;
+    $binarySignature = sodium_hex2bin($signature);
+    $binaryKey = sodium_hex2bin($publicKey);
+
+    if (!sodium_crypto_sign_verify_detached($binarySignature, $message, $binaryKey))
+        return ['status' => 401, 'payload' => null];
+
+    $payload = json_decode($payload, true);
+    switch ($payload['type']) {
+        case InteractionType::PING:
+            return ['status' => 200, 'payload' => ['type' => InteractionResponseType::PONG]];
+        case InteractionType::APPLICATION_COMMAND:
+            return ['status' => 200, 'payload' => ['type' => 2]];
+        default:
+            return ['status' => 400, 'payload' => null];
     }
-    if($gender < 3){
-      $query =  $query . " (gender = '" . $gender . "' OR gender = '2')";
-    }
-  }
-
-  if($random){
-    $query = $query . " ORDER BY RAND() ";
-  }
-  $query = $query . " LIMIT " . strval($limit);
-  if($offset != 0){
-    $query = $query . " OFFSET " .  strval($offset) * strval($limit);
-  }
-	$results = $wpdb->get_results($query);
-  return $results;
-}
-
-add_action( 'rest_api_init', function () {
-  register_rest_route( 'rorp24-blocks/v1', '/name_generator/create_name', array(
-    'methods' => 'POST',
-    'callback' => 'rorp_api_name_generator_create_name',
-    'permission_callback' => 'security_callback',
-    'args' =>[
-  		'name' =>[
-        'validate_callback' => function ( $value, \WP_REST_Request $request, $key ) {
-            if ( ! is_string( $value ) ) {
-              return new \WP_Error( 'empty', 'Not a string.' );
-            }
-    				if(strlen($value) < 1){
-            	return new \WP_Error( 'empty', 'string is empty' );
-            }
-    				if(strlen($value) > 30){
-            	return new \WP_Error( 'empty', 'It\'s a name not a fucking sentence!' );
-            }
-
-            return true;
-          },
-        'sanitize_callback' => 'string_sanatizer',
-  		],
-    	'race' =>[
-        'validate_callback' => function ( $value, \WP_REST_Request $request, $key ) {
-    				//TODO confirmer que la race existe en base
-    				if ( ! is_numeric( $value ) ) {
-              return new \WP_Error( 'post_id_invalid_format', 'Post ID should only contain digits.' );
-            }
-            return true;
-          },
-        'sanitize_callback' => 'string_sanatizer',
-  		],
-      'gender' =>[
-        'validate_callback' => function ( $value, \WP_REST_Request $request, $key ) {
-    				//TODO confirmer que le genre existe en base
-    				if ( ! is_numeric( $value ) ) {
-              return new \WP_Error( 'post_id_invalid_format', 'Post ID should only contain digits.' );
-            }
-            return true;
-          },
-          'sanitize_callback' => 'string_sanatizer',
-  		],
-  	]
-  ) );
-} );
-
-function rorp_api_name_generator_create_name(\WP_REST_Request $request){
-  global $wpdb;
-  $name = $request->get_param( 'name' );
-  $race = $request->get_param( 'race' );
-  $gender = $request->get_param( 'gender' );
-
-  $query = "INSERT INTO `rorp_API_generator_name`(`race_id`,`gender`,`name`) VALUES (" . strval($race) . ", '" . strval($gender) . "', '" . strval($name) . "')";
-  $results = $wpdb->get_results($query);
-  return $results;
 }
 
 ?>

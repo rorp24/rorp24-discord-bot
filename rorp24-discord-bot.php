@@ -14,5 +14,6 @@
  */
 
 //includes
+include __DIR__ .'/discord-handling/rorp-discord-bot-private.php';
 include __DIR__ .'/includes/rorp-discord-bot-menus.php';
-// include __DIR__ .'/includes/rorp-api-endpoints.php';
+include __DIR__ .'/includes/rorp-discord-bot-endpoints.php';

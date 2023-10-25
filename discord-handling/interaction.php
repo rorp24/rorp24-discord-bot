@@ -11,19 +11,19 @@ abstract class InteractionResponseFlags {
 }
 
 abstract class InteractionResponseType {
-    const PONG = 1;
-    const CHANNEL_MESSAGE_WITH_SOURCE = 4;
-    const DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE = 5;
-    const DEFERRED_UPDATE_MESSAGE = 6;
-    const UPDATE_MESSAGE = 7;
-    const APPLICATION_COMMAND_AUTOCOMPLETE_RESULT = 8;
-    const MODAL = 9;
-  }
+  const PONG = 1;
+  const CHANNEL_MESSAGE_WITH_SOURCE = 4;
+  const DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE = 5;
+  const DEFERRED_UPDATE_MESSAGE = 6;
+  const UPDATE_MESSAGE = 7;
+  const APPLICATION_COMMAND_AUTOCOMPLETE_RESULT = 8;
+  const MODAL = 9;
+}
 
-  abstract class InteractionType {
-    const PING = 1;
-    const APPLICATION_COMMAND = 2;
-    const MESSAGE_COMPONENT = 3;
-    const APPLICATION_COMMAND_AUTOCOMPLETE = 4;
-    const MODAL_SUBMIT = 5;
-  }
+abstract class InteractionType {
+  const PING = 1;
+  const APPLICATION_COMMAND = 2;
+  const MESSAGE_COMPONENT = 3;
+  const APPLICATION_COMMAND_AUTOCOMPLETE = 4;
+  const MODAL_SUBMIT = 5;
+}

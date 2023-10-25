@@ -20,7 +20,7 @@ function rorp_discord_bot_interaction_endpoint(\WP_REST_Request $request){
   //gestion des paramètres
   $params = $request->get_params();
   $headers = $request->get_headers();
-  error_log('params:'.json_encode($params));
+  //error_log('params:'.json_encode($params));
   
   //gestion du cas où discord veux faire une vérification
   $response = new WP_REST_Response();
@@ -32,7 +32,7 @@ function rorp_discord_bot_interaction_endpoint(\WP_REST_Request $request){
   if($params['type'] == InteractionType::APPLICATION_COMMAND){
     if(isset($params['data'])){
       $data = $params['data'];
-      error_log("data:".json_encode($params['data']));
+      //error_log("data:".json_encode($params['data']));
       
       $content ='';
       $type = 0;
@@ -87,6 +87,7 @@ function rorp_discord_bot_interaction_endpoint(\WP_REST_Request $request){
     }
     else {
       error_log("qu'est ce qui se passe ici?");
+      error_log('params:'.json_encode($params));
     }
   }
   $response->set_data(array(
@@ -98,6 +99,7 @@ function rorp_discord_bot_interaction_endpoint(\WP_REST_Request $request){
   return $response;
 }
 
+//fonction pour renvoyer la bonne réponse à discord quand il veux tester le nouveau endpoint
 function discord_endpoint_verify(array $headers, string $payload, string $publicKey): array
 {
     if (

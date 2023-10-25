@@ -6,8 +6,7 @@ use Discord\BotPrivateData;
 use Discord\ApplicationCommandType;
 use Discord\ApplicationCommandOptionType;
 
-// Simple test command
-
+// Envoi à discord les commandes du bot
 function rorp_discord_bot_install_all_command(string $app_id, array $commands_array){
     $request = wp_remote_request('https://discord.com/api/v10/applications/'.$app_id.'/commands',array(
         'method'=>'PUT',

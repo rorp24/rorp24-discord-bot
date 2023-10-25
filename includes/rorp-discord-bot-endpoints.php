@@ -89,13 +89,13 @@ function rorp_discord_bot_interaction_endpoint(\WP_REST_Request $request){
       error_log("qu'est ce qui se passe ici?");
       error_log('params:'.json_encode($params));
     }
+    $response->set_data(array(
+      'type'=>$type,
+      'data'=>array(
+        'content'=>$content
+      ),
+    ));
   }
-  $response->set_data(array(
-    'type'=>$type,
-    'data'=>array(
-      'content'=>$content
-    ),
-  ));
   return $response;
 }
 
